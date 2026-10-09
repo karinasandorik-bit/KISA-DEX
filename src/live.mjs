@@ -2,7 +2,7 @@ import pg from 'pg';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {ingestSnapshot,settleOutcome} from './worker.mjs';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='disable'?false:{rejectUnauthorized:false}});
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='disable'?false:undefined});
 const url='https://api.exchange.coinbase.com/products/BTC-USD/ticker';
 const sha=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
@@ -16,11 +16,11 @@ export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
  const client=await db.connect();
  try{
   await client.query('BEGIN');
-  const pending=await client.query("SELECT o.signal_id,o.horizon_minutes,o.due_at,s.entry_price,s.direction,s.baseline_direction,s.round_trip_cost_bps FROM shadow_outcomes o JOIN shadow_signals s USING(signal_id) WHERE s.source=$1 AND o.status='pending' AND o.due_at<=$2 FOR UPDATE OF o",[source,observedAt]);
+  const pending=await client.query("SELECT o.signal_id,o.horizon_minutes,o.due_at,s.entry_price,s.direction,s.baseline_direction,s.round_trip_cost_bps FROM shadow_outcomes o JOIN shadow_signals s USING(signal_id) WHERE s.source=$1 AND o.status='pending' AND o.due_at<=$2",[source,observedAt]);
   await client.query('COMMIT');
   for(const row of pending.rows){
-   const raw=(price/row.entry_price-1)*10000,cost=row.round_trip_cost_bps;
-   await settleOutcome(db,{signalId:row.signal_id,horizonMinutes:row.horizon_minutes,evaluatedAt:observedAt,exitPrice:price,grossBps:row.direction*raw,netBps:row.direction*raw-cost,baselineNetBps:row.baseline_direction*raw-cost});
+   const raw=(price/Number(row.entry_price)-1)*10000,cost=Number(row.round_trip_cost_bps);
+   await settleOutcome(db,{signalId:row.signal_id,horizonMinutes:Number(row.horizon_minutes),evaluatedAt:observedAt,exitPrice:price,grossBps:row.direction*raw,netBps:row.direction*raw-cost,baselineNetBps:row.baseline_direction*raw-cost});
   }
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
  // No directional trade is invented from a single ticker; NO_TRADE is the prospective decision.
