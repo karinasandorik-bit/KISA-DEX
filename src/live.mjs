@@ -2,6 +2,7 @@ import pg from 'pg';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {ingestSnapshot,settleOutcome} from './worker.mjs';
+import {runProfitProof} from './profit-proof-worker.mjs';
 const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='disable'?false:undefined,options:'-c search_path=kisa_dex,public'});
 const url='https://api.exchange.coinbase.com/products/BTC-USD/ticker';
 const sha=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
@@ -28,6 +29,7 @@ export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
  // No directional trade is invented from a single ticker; NO_TRADE is the prospective decision.
  const decisionId=sha({source,observedAt,model:'no-trade-baseline-v1'});
  const decision=await db.query('INSERT INTO dex_decisions(decision_id,source,observed_at,entry_price,action,evidence_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(decision_id) DO NOTHING RETURNING decision_id',[decisionId,source,observedAt,price,'NO_TRADE',sha({source,observedAt,price})]);
+ try { const proof=await runProfitProof({db,fetcher,now}); console.log(JSON.stringify({event:'PROFIT_PROOF_CYCLE',...proof})); } catch(e) { console.error(JSON.stringify({event:'PROFIT_PROOF_BLOCKED',reason:e.message})); }
  console.log(JSON.stringify({event:'DEX_CYCLE_OK',source,observedAt,receipt,settlements:settledCount,decisionId,decisionWritten:decision.rowCount===1,mode:'SHADOW_ONLY'}));
  return {receipt,decisionId,settlements:settledCount};
 }
