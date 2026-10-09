@@ -1,0 +1,13 @@
+import test from 'node:test';import assert from 'node:assert/strict';
+import {freezeProfitProof} from '../src/profit-proof.mjs';
+const at='2026-10-09T19:00:00.000Z',now=Date.parse(at);
+const bars=Array.from({length:52},(_,i)=>({closedAt:new Date(now-(51-i)*3600000).toISOString(),close:80000+i,high:80010+i,low:79990+i}));
+const quotes=[{venue:'okx',price:80051,observedAt:at},{venue:'bitget',price:80052,observedAt:at}];
+const base={symbol:'BTCUSDT',bars,quotes,at,modelCommit:'sha'};
+test('no signal without verified crossover',()=>assert.equal(freezeProfitProof(base).action,'NO_TRADE'));
+test('2 independent fresh venues required',()=>assert.equal(freezeProfitProof({...base,quotes:quotes.slice(0,1)}).reason,'INSUFFICIENT_VENUES'));
+test('stale quote fails closed',()=>assert.equal(freezeProfitProof({...base,quotes:[quotes[0],{...quotes[1],observedAt:'2026-10-09T18:00:00.000Z'}]}).reason,'INVALID_OR_STALE_QUOTE'));
+test('divergence fails closed',()=>assert.equal(freezeProfitProof({...base,quotes:[quotes[0],{...quotes[1],price:82000}]}).reason,'VENUE_DIVERGENCE'));
+test('candle gap fails closed',()=>assert.equal(freezeProfitProof({...base,bars:bars.map((x,i)=>i===12?{...x,closedAt:at}:x)}).reason,'CANDLE_GAP_OR_FUTURE'));
+test('deterministic ID and evidence hash',()=>assert.deepEqual(freezeProfitProof(base),freezeProfitProof(base)));
+test('never authorizes trading',()=>assert.equal(freezeProfitProof(base).executable,false));
