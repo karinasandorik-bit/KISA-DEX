@@ -3,7 +3,7 @@ const get=async(url,fetcher)=>{const r=await fetcher(url,{signal:AbortSignal.tim
 export async function runProfitProof({db,fetcher=fetch,now=Date.now()}){
  const boundary=Math.floor(now/3600000)*3600000;
  if(now-boundary>600000)return {status:'SKIP_NOT_HOURLY_WINDOW'};
- const at=new Date(now).toISOString(), symbol='BTCUSDT';
+ const symbol='BTCUSDT';
  const [raw,okx,bitget]=await Promise.all([
   get('https://api.exchange.coinbase.com/products/BTC-USD/candles?granularity=3600',fetcher),
   get('https://www.okx.com/api/v5/market/ticker?instId=BTC-USDT-SWAP',fetcher),
@@ -11,6 +11,7 @@ export async function runProfitProof({db,fetcher=fetch,now=Date.now()}){
  ]);
  if(!Array.isArray(raw)||!Array.isArray(okx.data)||!Array.isArray(bitget.data))throw Error('BAD_MARKET_RESPONSE');
  const bars=raw.filter(x=>Number(x[0])*1000+3600000<=boundary).sort((a,b)=>a[0]-b[0]).slice(-52).map(x=>({closedAt:new Date(Number(x[0])*1000+3600000).toISOString(),low:Number(x[1]),high:Number(x[2]),close:Number(x[4])}));
+ const at=new Date(Date.now()).toISOString();
  const a=okx.data[0], b=bitget.data[0];
  const quotes=[{venue:'okx',price:Number(a?.last),observedAt:new Date(Number(a?.ts)).toISOString()},{venue:'bitget',price:Number(b?.lastPr),observedAt:new Date(Number(b?.ts)).toISOString()}];
  const frozen=freezeProfitProof({symbol,bars,quotes,at,modelCommit:'OWL-PROFIT-PROOF-001-v1'});
