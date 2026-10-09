@@ -1,3 +1,5 @@
+CREATE SCHEMA IF NOT EXISTS kisa_dex;
+SET search_path TO kisa_dex, public;
 CREATE TABLE IF NOT EXISTS runs(source text NOT NULL,tick bigint NOT NULL,PRIMARY KEY(source,tick));
 CREATE TABLE IF NOT EXISTS snapshots(source text NOT NULL,ts bigint NOT NULL,data jsonb NOT NULL,PRIMARY KEY(source,ts));
 CREATE TABLE IF NOT EXISTS state(source text PRIMARY KEY,ts bigint NOT NULL,cooldown jsonb NOT NULL DEFAULT '{}'::jsonb);
