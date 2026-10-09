@@ -1,0 +1,12 @@
+{
+  "name": "kisa-dex",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "test": "node --test",
+    "start": "node src/worker.mjs"
+  },
+  "engines": {
+    "node": ">=20"
+  }
+}
