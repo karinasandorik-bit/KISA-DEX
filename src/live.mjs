@@ -29,7 +29,7 @@ export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
  const decisionId=sha({source,observedAt,model:'no-trade-baseline-v1'});
  const decision=await db.query('INSERT INTO dex_decisions(decision_id,source,observed_at,entry_price,action,evidence_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(decision_id) DO NOTHING RETURNING decision_id',[decisionId,source,observedAt,price,'NO_TRADE',sha({source,observedAt,price})]);
  console.log(JSON.stringify({event:'DEX_CYCLE_OK',source,observedAt,receipt,settlements:settledCount,decisionId,decisionWritten:decision.rowCount===1,mode:'SHADOW_ONLY'}));
- return {receipt,decisionId,settlements:pending.rows.length};
+ return {receipt,decisionId,settlements:settledCount};
 }
 if(process.argv[1]&&import.meta.url===new URL('file://'+process.argv[1]).href){
  try{await pool.query(await readFile(new URL('../schema.sql',import.meta.url),'utf8'));await cycle();await pool.end();}catch(e){console.error(JSON.stringify({event:'DEX_CYCLE_FAILED',reason:e.message}));await pool.end();process.exitCode=1;}
