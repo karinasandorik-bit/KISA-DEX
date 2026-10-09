@@ -15,3 +15,23 @@ CREATE TABLE IF NOT EXISTS dex_decisions(decision_id text PRIMARY KEY,source tex
 CREATE OR REPLACE FUNCTION reject_dex_decision_mutation() RETURNS trigger LANGUAGE plpgsql AS $$ BEGIN RAISE EXCEPTION 'dex decision immutable'; END $$;
 DROP TRIGGER IF EXISTS dex_decision_immutable ON dex_decisions;
 CREATE TRIGGER dex_decision_immutable BEFORE UPDATE OR DELETE ON dex_decisions FOR EACH ROW EXECUTE FUNCTION reject_dex_decision_mutation();
+
+-- OWL-PROFIT-PROOF-001: independent, append-only prospective decision record.
+CREATE TABLE IF NOT EXISTS proof_decisions (
+ decision_id text PRIMARY KEY,
+ trial_id text NOT NULL CHECK (trial_id='OWL-PROFIT-PROOF-001'),
+ symbol text NOT NULL,
+ observed_at timestamptz NOT NULL,
+ signal_at timestamptz NOT NULL DEFAULT clock_timestamp(),
+ action text NOT NULL CHECK(action IN ('LONG','SHORT','NO_TRADE')),
+ reason text NOT NULL,
+ evidence_hash text NOT NULL,
+ payload jsonb NOT NULL,
+ CONSTRAINT freeze_before_commit CHECK (observed_at<=signal_at),
+ CONSTRAINT hash_nonempty CHECK (length(evidence_hash)=64)
+);
+CREATE OR REPLACE FUNCTION reject_proof_mutation() RETURNS trigger LANGUAGE plpgsql AS $$
+BEGIN RAISE EXCEPTION 'proof_decisions immutable'; END $$;
+DROP TRIGGER IF EXISTS proof_decisions_immutable ON proof_decisions;
+CREATE TRIGGER proof_decisions_immutable BEFORE UPDATE OR DELETE ON proof_decisions
+FOR EACH ROW EXECUTE FUNCTION reject_proof_mutation();
