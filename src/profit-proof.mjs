@@ -7,7 +7,8 @@ export function freezeProfitProof({symbol,bars,quotes,at,modelCommit,previousSig
  const deny=reason=>({...base,action:'NO_TRADE',reason});
  if(!['BTCUSDT','ETHUSDT'].includes(symbol))return deny('SYMBOL_NOT_ALLOWED');
  const now=Date.parse(at);
- if(!Number.isFinite(now)||now%3600000!==0)return deny('NOT_HOURLY_BOUNDARY');
+ const boundary=Math.floor(now/3600000)*3600000;
+ if(!Number.isFinite(now)||now-boundary>600000)return deny('LATE_HOURLY_EVALUATION');
  if(!Array.isArray(bars)||bars.length<52)return deny('INSUFFICIENT_CANDLES');
  if(!Array.isArray(quotes)||quotes.length<2)return deny('INSUFFICIENT_VENUES');
  if(previousSignalAt!==null&&now-Date.parse(previousSignalAt)<14400000)return deny('COOLDOWN_4H');
@@ -15,7 +16,7 @@ export function freezeProfitProof({symbol,bars,quotes,at,modelCommit,previousSig
  for(const q of quotes){const age=now-Date.parse(q.observedAt);if(!q.venue||venues.has(q.venue)||!Number.isFinite(q.price)||q.price<=0||!(age>=0&&age<=30000))return deny('INVALID_OR_STALE_QUOTE');venues.add(q.venue)}
  const ps=quotes.map(q=>q.price),mid=ps.reduce((a,b)=>a+b,0)/ps.length;
  if((Math.max(...ps)-Math.min(...ps))/mid*10000>20)return deny('VENUE_DIVERGENCE');
- for(let i=0;i<bars.length;i++){const b=bars[i];if(!Number.isFinite(b.close)||!Number.isFinite(b.high)||!Number.isFinite(b.low)||b.close<=0||b.high<b.low||b.high<b.close||b.low>b.close||!Number.isFinite(Date.parse(b.closedAt)))return deny('BAD_CANDLE');if(Date.parse(b.closedAt)!==now-(bars.length-i-1)*3600000)return deny('CANDLE_GAP_OR_FUTURE')}
+ for(let i=0;i<bars.length;i++){const b=bars[i];if(!Number.isFinite(b.close)||!Number.isFinite(b.high)||!Number.isFinite(b.low)||b.close<=0||b.high<b.low||b.high<b.close||b.low>b.close||!Number.isFinite(Date.parse(b.closedAt)))return deny('BAD_CANDLE');if(Date.parse(b.closedAt)!==boundary-(bars.length-i-1)*3600000)return deny('CANDLE_GAP_OR_FUTURE')}
  const close=bars.map(x=>x.close),prev=close.slice(0,-1);
  const m20=sma(close,20),m50=sma(close,50),p20=sma(prev,20),p50=sma(prev,50);
  const high=Math.max(...bars.slice(-21,-1).map(x=>x.high)),low=Math.min(...bars.slice(-21,-1).map(x=>x.low));
