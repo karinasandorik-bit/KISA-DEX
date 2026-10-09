@@ -1,0 +1,2 @@
+import test from 'node:test';import assert from 'node:assert/strict';import {readFileSync} from 'node:fs';
+test('schema enforces finalized immutability',()=>{const s=readFileSync(new URL('../schema.sql',import.meta.url),'utf8');assert.match(s,/BEFORE UPDATE OR DELETE ON shadow_outcomes/);assert.match(s,/BEFORE UPDATE OR DELETE ON shadow_signals/);assert.match(s,/CREATE TABLE IF NOT EXISTS dex_decisions/);});
