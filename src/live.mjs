@@ -2,7 +2,7 @@ import pg from 'pg';
 import {readFile} from 'node:fs/promises';
 import {createHash} from 'node:crypto';
 import {ingestSnapshot,settleOutcome} from './worker.mjs';
-const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='disable'?false:undefined});
+const pool=new pg.Pool({connectionString:process.env.DATABASE_URL,ssl:process.env.PGSSLMODE==='disable'?false:undefined,options:'-c search_path=kisa_dex,public'});
 const url='https://api.exchange.coinbase.com/products/BTC-USD/ticker';
 const sha=x=>createHash('sha256').update(JSON.stringify(x)).digest('hex');
 export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
