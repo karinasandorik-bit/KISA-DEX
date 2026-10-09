@@ -4,9 +4,12 @@
   "type": "module",
   "scripts": {
     "test": "node --test",
-    "start": "node src/worker.mjs"
+    "start": "node src/live.mjs"
   },
   "engines": {
     "node": ">=20"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   }
 }
