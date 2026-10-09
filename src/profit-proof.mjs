@@ -23,7 +23,7 @@ export function freezeProfitProof({symbol,bars,quotes,at,modelCommit,previousSig
  const long=p20<=p50&&m20>m50&&close.at(-1)>high,short=p20>=p50&&m20<m50&&close.at(-1)<low;
  const action=long?'LONG':short?'SHORT':'NO_TRADE';
  const evidence={symbol,at,bars:bars.slice(-52),quotes,modelCommit};
- const evidenceHash=sha(evidence),id=sha({trial:base.trial,symbol,at,modelCommit});
+ const evidenceHash=sha(evidence),id=sha({trial:base.trial,symbol,boundary:new Date(boundary).toISOString(),modelCommit});
  if(action==='NO_TRADE')return {...base,id,action,reason:'RULE_NO_SIGNAL',evidenceHash};
  const width=atr(bars,14)*1.5;if(!(width>0))return deny('INVALID_ATR');
  return {...base,id,action,reason:'FROZEN_SIGNAL',evidenceHash,entryPolicy:'NEXT_EXECUTABLE_QUOTE_AFTER_SIGNAL',referenceMid:mid,stopDistance:width,takeDistance:width*2,horizonHours:4,roundTripCostFloorBps:16,requiresActualFunding:true,riskFraction:0.0025};
