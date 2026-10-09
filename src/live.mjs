@@ -13,6 +13,7 @@ export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
  if(!(price>0)||!Number.isSafeInteger(observedAt)||observedAt>now+60000||now-observedAt>300000)throw Error('stale_or_invalid_quote');
  const source='coinbase:BTC-USD',assetId='BTC-USD';
  const receipt=await ingestSnapshot(db,{source,observedAt,quotes:{[assetId]:{price,source,observedAt}}});
+ let settledCount=0;
  const client=await db.connect();
  try{
   await client.query('BEGIN');
@@ -20,13 +21,14 @@ export async function cycle({now=Date.now(),fetcher=fetch,db=pool}={}){
   await client.query('COMMIT');
   for(const row of pending.rows){
    const raw=(price/Number(row.entry_price)-1)*10000,cost=Number(row.round_trip_cost_bps);
-   await settleOutcome(db,{signalId:row.signal_id,horizonMinutes:Number(row.horizon_minutes),evaluatedAt:observedAt,exitPrice:price,grossBps:row.direction*raw,netBps:row.direction*raw-cost,baselineNetBps:row.baseline_direction*raw-cost});
+   const outcome=await settleOutcome(db,{signalId:row.signal_id,horizonMinutes:Number(row.horizon_minutes),evaluatedAt:observedAt,exitPrice:price,grossBps:row.direction*raw,netBps:row.direction*raw-cost,baselineNetBps:row.baseline_direction*raw-cost});
+   if(outcome.status==='settled')settledCount++;
   }
  }catch(e){await client.query('ROLLBACK').catch(()=>{});throw e;}finally{client.release();}
  // No directional trade is invented from a single ticker; NO_TRADE is the prospective decision.
  const decisionId=sha({source,observedAt,model:'no-trade-baseline-v1'});
  const decision=await db.query('INSERT INTO dex_decisions(decision_id,source,observed_at,entry_price,action,evidence_hash) VALUES($1,$2,$3,$4,$5,$6) ON CONFLICT(decision_id) DO NOTHING RETURNING decision_id',[decisionId,source,observedAt,price,'NO_TRADE',sha({source,observedAt,price})]);
- console.log(JSON.stringify({event:'DEX_CYCLE_OK',source,observedAt,receipt,settlements:pending.rows.length,decisionId,decisionWritten:decision.rowCount===1,mode:'SHADOW_ONLY'}));
+ console.log(JSON.stringify({event:'DEX_CYCLE_OK',source,observedAt,receipt,settlements:settledCount,decisionId,decisionWritten:decision.rowCount===1,mode:'SHADOW_ONLY'}));
  return {receipt,decisionId,settlements:pending.rows.length};
 }
 if(process.argv[1]&&import.meta.url===new URL('file://'+process.argv[1]).href){
